@@ -733,6 +733,9 @@ RULES: tuple[Rule, ...] = (
     Rule("rule:slack-token", "SECRET", re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"), known_format=True),
     Rule("rule:google-key", "SECRET", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}(?![0-9A-Za-z_\-])"), known_format=True),
     Rule("rule:stripe-key", "SECRET", re.compile(r"\b(?:sk|rk)_(?:live|test)_[0-9A-Za-z]{16,}"), known_format=True),
+    Rule("rule:gitlab-token", "SECRET", re.compile(r"\bglpat-[A-Za-z0-9_\-]{20,}"), known_format=True),
+    Rule("rule:digitalocean-token", "SECRET", re.compile(r"\bdop_v1_[0-9a-f]{64}\b"), known_format=True),
+    Rule("rule:shopify-token", "SECRET", re.compile(r"\bshp(?:at|ca|pa|ss)_[0-9a-fA-F]{32}\b"), known_format=True),
     Rule("rule:bearer", "SECRET", re.compile(r"(?i)\bbearer\s+([A-Za-z0-9\-._~+/]{8,}=*)"), group=1),
     Rule(
         "rule:key-value",

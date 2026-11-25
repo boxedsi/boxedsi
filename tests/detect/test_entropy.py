@@ -49,7 +49,7 @@ PEM_BODY = "\n".join(token(_PEM_RNG, ALPHABETS["base64"], 64) for _ in range(4))
 
 SECRET32 = "6wzGkWlEB5FL81rqxvse1c1A2dj3tUGk"  # 32 characters, 4.7 bits
 SECRET24 = "LlUetPbmH3XdVPJfv4G27PGN"  # 24 characters, 4.3 bits: as long as the ids of services
-SHORT_ONES = [SECRET24, "glpat-Yaa5lE4aN0nTHcmC4mse", "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="]  # 24, 26 and 26 characters (the Basic credentials of RFC 7617)
+SHORT_ONES = [SECRET24, "xyzab-Yaa5lE4aN0nTHcmC4mse", "QWxhZGRpbjpvcGVuIHNlc2FtZQ=="]  # 24, 26 and 26 characters (the Basic credentials of RFC 7617)
 
 
 @pytest.mark.parametrize(

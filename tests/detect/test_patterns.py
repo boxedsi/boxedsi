@@ -640,6 +640,28 @@ def test_a_separator_that_starts_the_next_field_ends_the_value(line, value):
     assert found(line) == [("SECRET", value)]
 
 
+def _prefixed_tokens():
+    import random
+    import string
+
+    rng = random.Random(18)
+    hexdigits = "0123456789abcdef"
+    tokens = ["glpat-" + "".join(rng.choice(string.ascii_letters + string.digits + "_-") for _ in range(20))]
+    tokens.append("dop_v1_" + "".join(rng.choice(hexdigits) for _ in range(64)))
+    tokens += [prefix + "".join(rng.choice(hexdigits) for _ in range(32)) for prefix in ("shpat_", "shpca_", "shppa_", "shpss_")]
+    return tokens
+
+
+@pytest.mark.parametrize("token", _prefixed_tokens())
+def test_gitlab_digitalocean_and_shopify_tokens_are_found(token):
+    assert found(token, level=0) == [("SECRET", token)]
+    assert found(f"deploy with {token} then rotate it", level=0) == [("SECRET", token)]
+
+
+def test_a_hex_string_without_a_prefix_is_left_alone():
+    assert kinds(_prefixed_tokens()[1].removeprefix("dop_v1_"), level=0) == []
+
+
 def test_telegram_bot_token():
     assert found(f"use {TELEGRAM} now") == [("SECRET", TELEGRAM)]
     assert found(f"https://api.telegram.org/bot{TELEGRAM}/getMe") == [("SECRET", TELEGRAM)]
