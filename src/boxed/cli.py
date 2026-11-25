@@ -634,7 +634,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
     from .audit import report
     from .audit.paths import mount_table, show_path
     from .audit.sources import claude_settings_files, iter_claude_code, iter_claude_settings, iter_codex
-    from .keys import KEYCHAIN_MISSING
+    from .keys import KEYCHAIN_MISSING, KeychainTimeout
 
     html_out = Target(args.html, kind="audit report", own=report.is_audit_report, reports=True) if args.html else None  # before the scan
     stats: Counter = Counter()
@@ -647,7 +647,7 @@ def cmd_audit(args: argparse.Namespace) -> int:
     since = args.since
     try:
         key = default_keystore().get_or_create("audit-mac-key", 32)
-    except AssertionError:
+    except (AssertionError, KeychainTimeout):
         raise
     except Exception as e:  # one random key for the whole run: the transcripts and the settings files share it
         key = secrets.token_bytes(32)
