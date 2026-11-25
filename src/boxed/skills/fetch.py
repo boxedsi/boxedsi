@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import zlib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
@@ -37,6 +38,7 @@ _GITHUB_HOSTS = ("github.com", "www.github.com")
 NOT_ADDRESS = "the target is not a folder, a file, a .zip or an https git address: check the spelling or give owner/repo"
 NOT_HTTPS = "only https git addresses are fetched: give an https address or clone it yourself and scan the folder"
 CLONE_FAILED = "the address could not be fetched: check it, and that git is installed and the repository is public"
+DAMAGED = "the archive is damaged or has conflicting names: it is not unpacked"
 OUTSIDE = "the archive has a path that leaves its folder: it is not unpacked"
 NOT_IN_REPO = "that path is not in the repository: check the address"
 
@@ -214,7 +216,10 @@ def _unzip(archive: Path, folder: Path) -> tuple[bool, tuple[tuple[str, str], ..
             if dest is None:
                 continue
             if info.is_dir():
-                dest.mkdir(parents=True, exist_ok=True)
+                try:
+                    dest.mkdir(parents=True, exist_ok=True)
+                except (FileExistsError, NotADirectoryError):  # a file already holds this name
+                    raise UserError(DAMAGED) from None
                 continue
             try:
                 dest.parent.mkdir(parents=True, exist_ok=True)
@@ -223,12 +228,15 @@ def _unzip(archive: Path, folder: Path) -> tuple[bool, tuple[tuple[str, str], ..
                 raise UserError("the archive uses the same name twice: it is not unpacked") from None
             except OSError:
                 raise UserError("the archive cannot be unpacked here: scan the folder after unpacking it yourself") from None
-            with os.fdopen(fd, "wb") as out, z.open(info) as src:
-                while chunk := src.read(65536):
-                    total += len(chunk)
-                    if total > MAX_ZIP_BYTES:
-                        raise UserError("the archive unpacks to too much data to check here: unpack it yourself and scan the folder")
-                    out.write(chunk)
+            try:
+                with os.fdopen(fd, "wb") as out, z.open(info) as src:
+                    while chunk := src.read(65536):
+                        total += len(chunk)
+                        if total > MAX_ZIP_BYTES:
+                            raise UserError("the archive unpacks to too much data to check here: unpack it yourself and scan the folder")
+                        out.write(chunk)
+            except (zipfile.BadZipFile, zlib.error, EOFError):  # a bad CRC or a cut-off member
+                raise UserError(DAMAGED) from None
     if links:
         print(f"boxed: {len(links)} link{'' if len(links) == 1 else 's'} in the archive {'was' if len(links) == 1 else 'were'} not unpacked, and will be reported", file=sys.stderr)
     return True, tuple(links)

@@ -188,6 +188,29 @@ def test_a_name_used_twice_in_an_archive_is_refused(tmp_path, work):
     assert leftovers(work) == []
 
 
+@pytest.mark.parametrize("kind", ["file-then-folder", "bad-crc"])
+def test_a_damaged_or_conflicting_zip_is_refused_without_quoting_a_path(tmp_path, work, capsys, kind):
+    path = tmp_path / "odd.zip"
+    if kind == "file-then-folder":
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("a", "one\n")
+            z.writestr("a/", "")
+    else:
+        make_zip(path, {"secret-name.md": "hello\n"})
+        data = bytearray(path.read_bytes())
+        data[data.index(b"hello")] ^= 0xFF  # stored, not deflated: the CRC no longer matches
+        path.write_bytes(bytes(data))
+    with pytest.raises(ValueError, match="damaged or has conflicting names"):
+        with target_folder(str(path), work=work):
+            pass
+    assert leftovers(work) == []
+    from boxed.cli import main
+
+    assert main(["skills", "scan", str(path)]) == 2
+    err = capsys.readouterr().err
+    assert "damaged or has conflicting names" in err and "secret-name" not in err
+
+
 def test_a_zip_that_cannot_be_read_is_scanned_as_a_file(tmp_path, work):
     broken = tmp_path / "broken.zip"
     broken.write_bytes(b"PK\x03\x04 this is not an archive")
