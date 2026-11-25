@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 First public version. Alpha: no external security audit. See [SECURITY.md](SECURITY.md). Details of each part are in [docs/guide/](docs/guide/README.md).
 
+### Fixed
+
+- Commands that read or create a key stop after 30 seconds with a fixed message when the system keychain does not answer, including a locked macOS keychain without a desktop session.
+
 ### Added
 
 - `boxed mask` and `boxed restore`: local masking of secrets and personal data with typed placeholders such as `[EMAIL_1]`, levels 0-3, scopes; restore never guesses.

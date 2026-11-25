@@ -2,6 +2,7 @@
 
 import base64
 import os
+import threading
 from pathlib import Path
 from typing import Protocol
 
@@ -10,15 +11,24 @@ from .locks import file_lock
 from .platform import open_nofollow, replace_file
 
 SERVICE = "boxed.si"
+KEYCHAIN_TIMEOUT = 30.0
 # fixed words: the error of a keyring backend names no fix and may quote the key it was given
 KEYCHAIN_MISSING = (
     "the system keychain cannot be used, and boxed keeps its keys there: on linux, run a secret service such as gnome keyring "
     "or kwallet in your session"
 )
+KEYCHAIN_TIMED_OUT = (
+    "the system keychain did not answer: it may be locked or have no desktop session; unlock it, or use the insecure-file keystore "
+    "only in a throwaway home with made-up data"
+)
 LOCK_FOLDER_UNSAFE = (
     "the folder for the keychain lock in the temporary folder is not a private folder of this user: remove it, or make the home "
     "folder writable"
 )
+
+
+class KeychainTimeout(UserError):
+    """The keychain did not answer before the caller's deadline."""
 
 
 class KeyStore(Protocol):
@@ -70,6 +80,27 @@ class KeyringKeyStore:
         self.lock = lock  # None: ~/.boxed/keychain.lock, the one of the user (see _lock_folder)
 
     def get_or_create(self, name: str, size: int) -> bytes:
+        """Bound the wait for the whole operation. A blocked backend cannot be cancelled, so its worker is a daemon and keeps
+        the first-key lock until its write finishes; the caller must not release that lock when it stops waiting."""
+        outcome: list[bytes | BaseException] = []
+
+        def run() -> None:
+            try:
+                outcome.append(self._get_or_create(name, size))
+            except BaseException as error:  # return even an invariant failure; never print a late backend error from the thread
+                outcome.append(error)
+
+        worker = threading.Thread(target=run, name="boxed-keychain", daemon=True)
+        worker.start()
+        worker.join(KEYCHAIN_TIMEOUT)
+        if worker.is_alive():
+            raise KeychainTimeout(KEYCHAIN_TIMED_OUT) from None
+        result = outcome[0]
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+    def _get_or_create(self, name: str, size: int) -> bytes:
         import keyring
 
         try:
